@@ -3,6 +3,8 @@ import ezdxf
 import os
 import re
 
+from layout_engine import generate_layout
+
 app = Flask(__name__)
 
 OUTPUT_FOLDER = "output"
@@ -46,25 +48,25 @@ def generate():
         height=300
     ).set_placement((500, plot_height + 600))
 
-    x = 500
-    y = plot_height - 500
+    # ----------------------------------------------------
+    # Generate room layout
+    # ----------------------------------------------------
+    layout = generate_layout(
+        plot_width,
+        plot_height,
+        rooms
+    )
 
-    margin = 300
-    row_height = 0
+    # ----------------------------------------------------
+    # Draw rooms
+    # ----------------------------------------------------
+    for room in layout:
 
-    for room in rooms:
+        x = room["x"]
+        y = room["y"]
+        width = room["width"]
+        length = room["length"]
 
-        name = room.get("name", "Room")
-        width = int(room.get("widthMm", 3000))
-        length = int(room.get("lengthMm", 3000))
-
-        # Move to next row
-        if x + width > plot_width - 500:
-            x = 500
-            y -= row_height + margin
-            row_height = 0
-
-        # Draw room
         msp.add_lwpolyline([
             (x, y),
             (x + width, y),
@@ -73,16 +75,12 @@ def generate():
             (x, y)
         ], close=True)
 
-        # Room label
         msp.add_text(
-            f"{name}\n{width} x {length} mm",
+            f'{room["name"]}\n{width} x {length} mm',
             height=220
         ).set_placement(
             (x + width / 4, y - length / 2)
         )
-
-        x += width + margin
-        row_height = max(row_height, length)
 
     # Safe filename
     filename = re.sub(r"[^A-Za-z0-9_-]", "_", project) + ".dxf"
