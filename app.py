@@ -19,17 +19,19 @@ def generate():
 
     data = request.get_json(silent=True) or {}
 
+    print("REQUEST DATA:", data)
+
     project = data.get("project", "Project")
     rooms = data.get("rooms", [])
 
-    plot = data.get("plot", {})
-    plot_width = int(plot.get("width", 23774))
-    plot_height = int(plot.get("length", 10668))
+    # Fixed plot size (78 ft x 35 ft)
+    plot_width = 23774
+    plot_height = 10668
 
     doc = ezdxf.new("R2018")
     msp = doc.modelspace()
 
-    # Plot boundary
+    # Draw outer plot
     msp.add_lwpolyline([
         (0, 0),
         (plot_width, 0),
@@ -38,7 +40,7 @@ def generate():
         (0, 0)
     ], close=True)
 
-    # Plot title
+    # Project title
     msp.add_text(
         f"Project : {project}",
         height=300
@@ -47,23 +49,22 @@ def generate():
     x = 500
     y = plot_height - 500
 
-    row_height = 0
     margin = 300
+    row_height = 0
 
     for room in rooms:
 
         name = room.get("name", "Room")
-
         width = int(room.get("widthMm", 3000))
         length = int(room.get("lengthMm", 3000))
 
-        # Next row if room exceeds plot width
+        # Move to next row
         if x + width > plot_width - 500:
             x = 500
             y -= row_height + margin
             row_height = 0
 
-        # Draw room rectangle
+        # Draw room
         msp.add_lwpolyline([
             (x, y),
             (x + width, y),
@@ -81,14 +82,10 @@ def generate():
         )
 
         x += width + margin
-
         row_height = max(row_height, length)
 
     # Safe filename
-    safe_project = re.sub(r'[^A-Za-z0-9_-]', '_', project)
-
-    filename = safe_project + ".dxf"
-
+    filename = re.sub(r"[^A-Za-z0-9_-]", "_", project) + ".dxf"
     filepath = os.path.join(OUTPUT_FOLDER, filename)
 
     doc.saveas(filepath)
