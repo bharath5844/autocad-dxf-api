@@ -1,8 +1,7 @@
-def generate_layout(plot_width, plot_length, rooms):
+def generate_layout(plot_width, plot_height, rooms):
     """
-    Returns room positions.
-
-    Output:
+    Generates room positions on the plot.
+    Returns:
     [
         {
             "name": "...",
@@ -17,15 +16,15 @@ def generate_layout(plot_width, plot_length, rooms):
     layout = []
 
     x = 500
-    y = plot_length - 500
+    y = plot_height - 500
 
-    row_height = 0
     margin = 300
+    row_height = 0
 
     for room in rooms:
 
-        width = room["widthMm"]
-        length = room["lengthMm"]
+        width = int(room.get("widthMm", 3000))
+        length = int(room.get("lengthMm", 3000))
 
         if x + width > plot_width - 500:
             x = 500
@@ -33,7 +32,7 @@ def generate_layout(plot_width, plot_length, rooms):
             row_height = 0
 
         layout.append({
-            "name": room["name"],
+            "name": room.get("name", "Room"),
             "x": x,
             "y": y,
             "width": width,
