@@ -4,6 +4,7 @@ import os
 import re
 
 from layout_engine import generate_layout
+from wall_generator import draw_wall_rectangle, draw_room_label
 
 app = Flask(__name__)
 
@@ -26,65 +27,97 @@ def generate():
     project = data.get("project", "Project")
     rooms = data.get("rooms", [])
 
-    # Fixed plot size (78 ft x 35 ft)
+    # Plot Size (78 x 35 ft)
     plot_width = 23774
     plot_height = 10668
 
+    # Create DXF
     doc = ezdxf.new("R2018")
     msp = doc.modelspace()
 
-    # Draw outer plot
-    msp.add_lwpolyline([
-        (0, 0),
-        (plot_width, 0),
-        (plot_width, plot_height),
-        (0, plot_height),
-        (0, 0)
-    ], close=True)
+    # -----------------------------
+    # Create Layers
+    # -----------------------------
+    if "WALLS" not in doc.layers:
+        doc.layers.add("WALLS")
 
-    # Project title
+    if "TEXT" not in doc.layers:
+        doc.layers.add("TEXT")
+
+    # -----------------------------
+    # Draw Plot Boundary
+    # -----------------------------
+    msp.add_lwpolyline(
+        [
+            (0, 0),
+            (plot_width, 0),
+            (plot_width, plot_height),
+            (0, plot_height),
+            (0, 0)
+        ],
+        close=True,
+        dxfattribs={
+            "layer": "WALLS"
+        }
+    )
+
+    # -----------------------------
+    # Project Title
+    # -----------------------------
     msp.add_text(
         f"Project : {project}",
-        height=300
-    ).set_placement((500, plot_height + 600))
+        dxfattribs={
+            "height": 300,
+            "layer": "TEXT"
+        }
+    ).set_placement(
+        (500, plot_height + 600)
+    )
 
-    # ----------------------------------------------------
-    # Generate room layout
-    # ----------------------------------------------------
+    # -----------------------------
+    # Generate Room Layout
+    # -----------------------------
     layout = generate_layout(
         plot_width,
         plot_height,
         rooms
     )
 
-    # ----------------------------------------------------
-    # Draw rooms
-    # ----------------------------------------------------
+    # -----------------------------
+    # Draw Rooms
+    # -----------------------------
     for room in layout:
 
-        x = room["x"]
-        y = room["y"]
-        width = room["width"]
-        length = room["length"]
-
-        msp.add_lwpolyline([
-            (x, y),
-            (x + width, y),
-            (x + width, y - length),
-            (x, y - length),
-            (x, y)
-        ], close=True)
-
-        msp.add_text(
-            f'{room["name"]}\n{width} x {length} mm',
-            height=220
-        ).set_placement(
-            (x + width / 4, y - length / 2)
+        draw_wall_rectangle(
+            msp=msp,
+            x=room["x"],
+            y=room["y"],
+            width=room["width"],
+            length=room["length"]
         )
 
-    # Safe filename
-    filename = re.sub(r"[^A-Za-z0-9_-]", "_", project) + ".dxf"
-    filepath = os.path.join(OUTPUT_FOLDER, filename)
+        draw_room_label(
+            msp=msp,
+            x=room["x"],
+            y=room["y"],
+            width=room["width"],
+            length=room["length"],
+            name=room["name"]
+        )
+
+    # -----------------------------
+    # Save File
+    # -----------------------------
+    filename = re.sub(
+        r"[^A-Za-z0-9_-]",
+        "_",
+        project
+    ) + ".dxf"
+
+    filepath = os.path.join(
+        OUTPUT_FOLDER,
+        filename
+    )
 
     doc.saveas(filepath)
 
@@ -98,7 +131,10 @@ def generate():
 @app.route("/download/<filename>")
 def download(filename):
 
-    filepath = os.path.join(OUTPUT_FOLDER, filename)
+    filepath = os.path.join(
+        OUTPUT_FOLDER,
+        filename
+    )
 
     if not os.path.exists(filepath):
         return jsonify({
@@ -116,4 +152,7 @@ def download(filename):
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(
+        host="0.0.0.0",
+        port=port
+    )
